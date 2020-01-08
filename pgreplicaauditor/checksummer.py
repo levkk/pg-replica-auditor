@@ -145,7 +145,7 @@ def main(table):
     print()
 
 
-@click.command()
+@click.group()
 @click.option('--primary', required=True)
 @click.option('--replica', required=True)
 @click.option('--table', required=True)

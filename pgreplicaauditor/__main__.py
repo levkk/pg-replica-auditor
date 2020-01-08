@@ -1,3 +1,3 @@
 from .checksummer import checksummer
 
-checksummer()
+checksummer(prog_name='pgreplicaauditor')

@@ -153,7 +153,3 @@ def checksummer(primary, replica, table, debug):
         os.environ['DEBUG'] = 'True'
 
     main(table)
-
-
-if __name__ == '__main__':
-    checksummer()

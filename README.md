@@ -12,6 +12,8 @@ This script requires three arguments:
 
 Optionally, if you want to see which queries it runs, you can set the `--debug` option.
 
+Example:
+
 ```bash
 $ (venv) python checksummer.py --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items
 ```

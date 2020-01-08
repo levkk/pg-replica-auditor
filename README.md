@@ -8,7 +8,7 @@ These tests assume that `id` and `updated_at` columns exist and have indexes for
 #### Row comparison
 Runs row comparisons between primary and replica using two methods:
 
-1. select 8128 rows at random between `MIN(id)` and `MAX(id)`,
+1. select 8128 rows (or number of rows given to `--rows`) at random between `MIN(id)` and `MAX(id)`
 2. select all rows between `MAX(id)` and `MAX(id) - 1000`.
 
 #### Replica lag

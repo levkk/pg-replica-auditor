@@ -1,5 +1,10 @@
 # pg-replica-checksummer
 
+## Requirements
+
+1. Python 3
+2. Postgres development files (required by psycopg2). On Mac OS, use `brew install postgresql`. On Ubuntu, install `libpq-dev`.
+
 ## Installation
 Using virtualenv, `pip install -r requirements.txt`
 

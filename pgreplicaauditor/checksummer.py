@@ -7,25 +7,26 @@ from colorama import Fore
 import colorama
 import click
 import psycopg2.extras
+import random
 
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.0.5'
+VERSION = '0.1.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
-
-
-def _func(i):
-    '''Gives 8128 rows from 0 to 2_021_315_090.'''
-    return i ** 2.38
 
 
 def _debug(cursor):
     '''Print the executed query in a pretty color.'''
     if os.getenv('DEBUG'):
         print(Fore.BLUE, '\b{}: '.format(cursor.connection.dsn) + cursor.query.decode('utf-8'), Fore.RESET)
+
+
+def _debug2(text):
+    if os.getenv('DEBUG'):
+        print(Fore.BLUE, '\b{}'.format(text), Fore.RESET)
 
 
 def connect():
@@ -36,130 +37,135 @@ def connect():
     return primary, replica
 
 
-def check(id_, primary, replica, table):
-    '''Check two rows on primary and replicaination tables.'''
-    query = 'SELECT * FROM "{table}" WHERE "id" = {id_} LIMIT 1'.format(table=table, id_=id_)
+def _minmax(cursor, table):
+    cursor.execute('SELECT MIN(id) AS "min", MAX(id) as "max" FROM {}'.format(table))
+    _debug(cursor)
 
-    primary.execute(query)
-    replica.execute(query)
+    result = cursor.fetchone()
 
-    _debug(primary)
-    _debug(replica)
+    return result['min'], result['max']
 
-    r1 = primary.fetchone()
-    r2 = replica.fetchone()
 
-    # No rows
-    if r1 is None or r2 is None:
-        return None
+def _get(cursor, table, id_):
+    query = 'SELECT * FROM {table} WHERE id = %s LIMIT 1'.format(table=table)
 
-    if dict(r1) != dict(r2):
-        print(Fore.RED, '\bprimary: ', dict(r1), Fore.RESET)
-        print(Fore.RED, '\breplica: ', dict(r2), Fore.RESET)
-        return False
-    else:
-        return True
+    cursor.execute(query, (id_,))
+    _debug(cursor)
+
+    return cursor.fetchone()
+
+
+def _exec(cursor, query, params=tuple()):
+    cursor.execute(query, params)
+    _debug(cursor)
+
+    return cursor
+
+
+def _pick(cursor, table, mi, ma):
+    result = None
+    attempts = 0
+
+    while result is None and attempts < 3:
+        id_ = random.randint(mi, ma)
+        result = _get(cursor, table, id_)
+        attempts += 1
+
+    return result
+
+
+def _result(checked, skipped):
+    print(Fore.GREEN, '\bChecked: {}'.format(checked), Fore.RESET)
+    print(Fore.GREEN, '\bSkipped: {}'.format(skipped), Fore.RESET)
+
+
+def _result2(text):
+    print(Fore.GREEN, '\b{}'.format(text), Fore.RESET)
+
+
+def _error(p, r):
+    id_ = p['id']
+    print(Fore.RED, '\bRows at id = {} are different'.format(id_), Fore.RESET)
+    print('primary: {}'.format(p))
+    print('replica: {}'.format(r))
+    exit(1)
+
+
+def _announce(name):
+    print(Fore.YELLOW, '\bRunning check "{}"'.format(name), Fore.RESET)
+
+
+def randcheck(primary, replica, table):
+    _announce('random check')
+    rmin, rmax = _minmax(replica, table)
+
+    checked = 0
+    skipped = 0
+    for _ in tqdm(range(8128)):
+        r = _pick(replica, table, rmin, rmax)
+        if r is None:
+            skipped += 1
+            continue
+        p = _get(primary, table, r['id'])
+        if p is None:
+            raise Exception('Replica is "ahead" of the primary, it has rows primary does not.')
+        assert r['id'] == p['id']
+        _debug2('Comparing id = {}'.format(r['id']))
+        if dict(p) != dict(r):
+            _error(dict(p), dict(r))
+        checked += 1
+    _result(checked, skipped)
 
 
 def last_1000(primary, replica, table):
-    '''Check last 1000 rows available on the replica table.'''
-    query1 = 'SELECT "id" FROM "{table}" ORDER BY "id" DESC LIMIT 1000'.format(table=table)
-
-    replica.execute(query1)
-    _debug(replica)
-
-    ids_available_on_replica = map(lambda row: str(row[0]), replica.fetchall())
-
-    query = 'SELECT * FROM "{table}" WHERE id IN ({ids}) ORDER BY "id" DESC LIMIT 1000'.format(
-        table=table, ids=','.join(ids_available_on_replica))
-
-    primary.execute(query)
-    _debug(primary)
-    replica.execute(query)
-    _debug(replica)
-
-    r1 = primary.fetchall()
-    r2 = replica.fetchall()
-
-    if len(r1) != len(r2):
-        raise Exception('Last 1000: Primary and replica do not have the same number of rows.')
+    _announce('last 1000')
+    _, rmax = _minmax(replica, table)
+    rmin = rmax - 1000
 
     checked = 0
-    missing = 0
-    for idx, row2 in enumerate(r2):
-        try:
-            row1 = r1[idx]
-        except IndexError:
-            missing += 1
-
+    skipped = 0
+    for id_ in tqdm(range(rmin, rmax)):
+        p = _get(primary, table, id_)
+        r = _get(replica, table, id_)
+        if p is None or r is None:
+            skipped += 1
+            continue
+        assert p['id'] == r['id']
+        if dict(p) != dict(r):
+            _error(dict(p), dict(r))
         checked += 1
-
-        if dict(row1) != dict(row2):
-            print(Fore.RED, '\bprimary:', dict(row1), '\nreplica:', dict(row2), Fore.RESET)
-            raise Exception('Last 1000: Rows at id = {id_} are different.'.format(id_=row1[0]))
-
-    print(Fore.GREEN, '\bOK: {checked}, missing: {missing}'.format(checked=checked, missing=missing), Fore.RESET)
+    _result(checked, skipped)
 
 
 def lag(primary, replica, table):
     '''Check logical lag between primary and replica table using Django/Rails "updated_at".'''
-    query = 'SELECT MAX(updated_at) FROM "{table}"'.format(table=table)
-
-    primary.execute(query)
-    _debug(primary)
-    replica.execute(query)
-    _debug(replica)
-
-    r1 = primary.fetchone()[0]
-    r2 = replica.fetchone()[0]
-
-    return r1 - r2
+    _announce('replica lag')
+    query = 'SELECT MAX(updated_at) AS "updated_at" FROM "{table}"'.format(table=table)
+    primary = _exec(primary, query)
+    replica = _exec(replica, query)
+    p = primary.fetchone()['updated_at']
+    r = replica.fetchone()['updated_at']
+    _result2(p - r)
 
 
 def main(table):
-    print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION))
+    print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
-    primary, replica = connect()
+    pconn, rconn = connect()
 
-    c1 = primary.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    c2 = replica.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    primary = pconn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    replica = rconn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    print(Fore.BLUE, '\bprimary: {}'.format(primary.dsn), Fore.RESET)
-    print(Fore.BLUE, '\breplica: {}'.format(replica.dsn), Fore.RESET)
+    _debug2('Primary: {}'.format(primary.connection.dsn))
+    _debug2('Replica: {}'.format(replica.connection.dsn))
+    _debug2('Checking table "{}"'.format(table))
+
+    randcheck(primary, replica, table)
     print()
-    print(Fore.BLUE, '\bChecking table "{}"'.format(table), Fore.RESET)
+    last_1000(primary, replica, table)
     print()
-
-    print(Fore.YELLOW, '\bChecking intermediate rows using f(i) = i^(2.38), i = [0, {rows}]'.format(rows=ROWS), Fore.RESET)
-
-    checked = 0
-    missing = 0
-    with tqdm(total=ROWS) as pbar:
-        for i in range(ROWS):
-            id_ = round(_func(i))
-            result = check(id_, c1, c2, table)
-            if result is None:
-                pbar.update(1)
-                missing += 1
-                continue
-            if result is False:
-                raise Exception('Rows at id = {} are different.'.format(id_))
-            pbar.update(1)
-            checked += 1
-
-    print(Fore.GREEN, '\bOK: {checked}, missing: {missing}'.format(checked=checked, missing=missing))
-    print()
-
-    print(Fore.YELLOW, '\bChecking last 1000 rows', Fore.RESET)
-
-    last_1000(c1, c2, table)
-
-    print()
-    print('Current lag:', Fore.MAGENTA, '\b{lag}'.format(lag=lag(c1, c2, table)), Fore.RESET)
-    print()
-
-    print('Bye.')
+    lag(primary, replica, table)
     print()
 
 

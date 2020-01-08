@@ -1,5 +1,18 @@
 # pg-replica-auditor
 
+## Features
+
+#### Row comparison
+Given a table that exists on both primary and replica, runs row comparisons between primary and replica using two methods:
+
+1. select 8128 rows at random between `MIN(id)` and `MAX(id)`,
+2. select all rows between `MAX(id)` and `MAX(id) - 1000`
+
+#### Replica lag
+Checks for "replica lag" by comparing `MAX(updated_at)` on the givent able on both databases.
+
+These tests assume that `id` and `updated_at` columns exist and have indexes for efficient querying.
+
 ## Requirements
 
 1. Python 3

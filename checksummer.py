@@ -19,29 +19,29 @@ def _func(i):
 def _debug(cursor, executor):
     '''Print the executed query in a pretty color.'''
     if os.getenv('DEBUG'):
-        print(Fore.BLUE, '{}: '.format(executor) + cursor.query.decode('utf-8'), Fore.RESET)
+        print(Fore.BLUE, '\b{}: '.format(executor) + cursor.query.decode('utf-8'), Fore.RESET)
 
 
 def connect():
-    '''Connect to source and destination DBs.'''
-    src = psycopg2.connect(os.getenv('SRC_DB_URL'))
-    dest = psycopg2.connect(os.getenv('DEST_DB_URL'))
+    '''Connect to source and replicaination DBs.'''
+    primary = psycopg2.connect(os.getenv('PRIMARY_DB_URL'))
+    replica = psycopg2.connect(os.getenv('REPLICA_DB_URL'))
 
-    return src, dest
+    return primary, replica
 
 
-def check(id_, src, dest, table):
-    '''Check two rows on src and destination tables.'''
+def check(id_, primary, replica, table):
+    '''Check two rows on primary and replicaination tables.'''
     query = 'SELECT * FROM "{table}" WHERE "id" = {id_} LIMIT 1'.format(table=table, id_=id_)
 
-    src.execute(query)
-    dest.execute(query)
+    primary.execute(query)
+    replica.execute(query)
 
-    _debug(src, 'src')
-    _debug(dest, 'dest')
+    _debug(primary, 'primary')
+    _debug(replica, 'replica')
 
-    r1 = src.fetchone()
-    r2 = dest.fetchone()
+    r1 = primary.fetchone()
+    r2 = replica.fetchone()
 
     # No rows
     if r1 is None and r2 is None:
@@ -53,25 +53,25 @@ def check(id_, src, dest, table):
         return True
 
 
-def last_1000(src, dest, table):
-    '''Check last 1000 rows available on destination table.'''
+def last_1000(primary, replica, table):
+    '''Check last 1000 rows available on the replica table.'''
     query1 = 'SELECT "id" FROM "{table}" ORDER BY "id" DESC LIMIT 1000'.format(table=table)
 
-    dest.execute(query1)
-    _debug(dest, 'dest')
+    replica.execute(query1)
+    _debug(replica, 'replica')
 
-    ids_available_on_dest = map(lambda row: str(row[0]), dest.fetchall())
+    ids_available_on_replica = map(lambda row: str(row[0]), replica.fetchall())
 
     query = 'SELECT * FROM "{table}" WHERE id IN ({ids}) ORDER BY "id" DESC LIMIT 1000'.format(
-        table=table, ids=','.join(ids_available_on_dest))
+        table=table, ids=','.join(ids_available_on_replica))
 
-    src.execute(query)
-    _debug(src, 'src')
-    dest.execute(query)
-    _debug(dest, 'dest')
+    primary.execute(query)
+    _debug(primary, 'primary')
+    replica.execute(query)
+    _debug(replica, 'replica')
 
-    r1 = src.fetchall()
-    r2 = dest.fetchall()
+    r1 = primary.fetchall()
+    r2 = replica.fetchall()
 
     for idx, row1 in enumerate(r1):
         row2 = r2[idx]
@@ -80,17 +80,17 @@ def last_1000(src, dest, table):
             raise Exception('Last 1000: Rows at id = {id_} are different.'.format(id_=row1[0]))
 
 
-def lag(src, dest, table):
-    '''Check logical lag between src and destination table using Django/Rails "updated_at".'''
+def lag(primary, replica, table):
+    '''Check logical lag between primary and replica table using Django/Rails "updated_at".'''
     query = 'SELECT MAX(updated_at) FROM "{table}"'.format(table=table)
 
-    src.execute(query)
-    _debug(src, 'src')
-    dest.execute(query)
-    _debug(dest, 'dest')
+    primary.execute(query)
+    _debug(primary, 'primary')
+    replica.execute(query)
+    _debug(replica, 'replica')
 
-    r1 = src.fetchone()[0]
-    r2 = dest.fetchone()[0]
+    r1 = primary.fetchone()[0]
+    r2 = replica.fetchone()[0]
 
     return r1 - r2
 
@@ -99,13 +99,13 @@ def main(table):
     print(Fore.CYAN, '\b=== Welcome to the Postgres checksummer. ===')
     print()
 
-    src, dest = connect()
+    primary, replica = connect()
 
-    c1 = src.cursor()
-    c2 = src.cursor()
+    c1 = primary.cursor()
+    c2 = primary.cursor()
 
-    print(Fore.BLUE, '\bsrc: {}'.format(src.dsn), Fore.RESET)
-    print(Fore.BLUE, '\bdest: {}'.format(dest.dsn), Fore.RESET)
+    print(Fore.BLUE, '\bprimary: {}'.format(primary.dsn), Fore.RESET)
+    print(Fore.BLUE, '\breplica: {}'.format(replica.dsn), Fore.RESET)
     print()
     print(Fore.BLUE, '\bChecking table "{}"'.format(table), Fore.RESET)
     print()
@@ -141,13 +141,13 @@ def main(table):
 
 
 @click.command()
-@click.option('--source', required=True)
-@click.option('--destination', required=True)
+@click.option('--primary', required=True)
+@click.option('--replica', required=True)
 @click.option('--table', required=True)
 @click.option('--debug/--release', default=False)
-def checksummer(source, destination, table, debug):
-    os.environ['DEST_DB_URL'] = destination
-    os.environ['SRC_DB_URL'] = source
+def checksummer(primary, replica, table, debug):
+    os.environ['REPLICA_DB_URL'] = replica
+    os.environ['PRIMARY_DB_URL'] = primary
 
     if debug:
         os.environ['DEBUG'] = 'True'

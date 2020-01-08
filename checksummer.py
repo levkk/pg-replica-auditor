@@ -9,9 +9,7 @@ import click
 
 colorama.init()
 
-TABLE = os.getenv('DB_TABLE')
 ROWS = 8128
-DEBUG = os.getenv('DEBUG')
 
 def _func(i):
     '''Gives 8128 rows from ~0 to ~2.4 billion.'''
@@ -20,7 +18,7 @@ def _func(i):
 
 def _debug(cursor, executor):
     '''Print the executed query in a pretty color.'''
-    if DEBUG:
+    if os.getenv('DEBUG'):
         print(Fore.BLUE, '{}: '.format(executor) + cursor.query.decode('utf-8'), Fore.RESET)
 
 
@@ -97,7 +95,7 @@ def lag(src, dest, table):
     return r1 - r2
 
 
-def main(table=TABLE):
+def main(table):
     print(Fore.CYAN, '\b=== Welcome to the Postgres checksummer. ===')
     print()
 
@@ -109,7 +107,7 @@ def main(table=TABLE):
     print(Fore.BLUE, '\bsrc: {}'.format(src.dsn), Fore.RESET)
     print(Fore.BLUE, '\bdest: {}'.format(dest.dsn), Fore.RESET)
     print()
-    print(Fore.BLUE, '\bChecking table {}'.format(TABLE), Fore.RESET)
+    print(Fore.BLUE, '\bChecking table "{}"'.format(table), Fore.RESET)
     print()
 
     print(Fore.YELLOW, '\bChecking intermediate rows using f(i) = i^(2.4), i = [0, {rows}]'.format(rows=ROWS), Fore.RESET)
@@ -141,5 +139,21 @@ def main(table=TABLE):
     print('Bye.')
     print()
 
+
+@click.command()
+@click.option('--source', required=True)
+@click.option('--destination', required=True)
+@click.option('--table', required=True)
+@click.option('--debug/--release', default=False)
+def checksummer(source, destination, table, debug):
+    os.environ['DEST_DB_URL'] = destination
+    os.environ['SRC_DB_URL'] = source
+
+    if debug:
+        os.environ['DEBUG'] = 'True'
+
+    main(table)
+
+
 if __name__ == '__main__':
-    main()
+    checksummer()

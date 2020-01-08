@@ -10,6 +10,11 @@ import click
 colorama.init()
 
 ROWS = 8128
+VERSION = '0.0.1'
+
+__version__ = VERSION
+__author__ = '<Lev Kokotov> lev.kokotov@instacart.com'
+
 
 def _func(i):
     '''Gives 8128 rows from ~0 to ~2.4 billion.'''
@@ -96,7 +101,7 @@ def lag(primary, replica, table):
 
 
 def main(table):
-    print(Fore.CYAN, '\b=== Welcome to the Postgres checksummer. ===')
+    print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION))
     print()
 
     primary, replica = connect()

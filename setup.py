@@ -3,9 +3,11 @@ import setuptools
 with open('README.md', 'r') as fh:
     long_description = fh.read()
 
+from pgreplicaauditor import VERSION
+
 setuptools.setup(
     name='pg-replica-auditor',
-    version='0.0.1',
+    version=VERSION,
     author='Lev Kokotov',
     author_email='lev.kokotov@instacart.com',
     description="Run a few sanity checks on your logical PostgreSQL replica to make sure its the same as the primary.",

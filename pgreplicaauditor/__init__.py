@@ -1,0 +1,1 @@
+from .checksummer import VERSION

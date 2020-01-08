@@ -1,0 +1,4 @@
+Click==7.0
+colorama==0.4.3
+psycopg2==2.8.4
+tqdm==4.41.1

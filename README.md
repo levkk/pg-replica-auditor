@@ -6,7 +6,12 @@
 2. Postgres development files (required by psycopg2). On Mac OS, use `brew install postgresql`. On Ubuntu, install `libpq-dev`.
 
 ## Installation
+
+### Development
 Using virtualenv, `pip install -r requirements.txt`
+
+### Production
+Using Pypi, `pip install pgreplicaauditor`.
 
 ## Usage
 
@@ -20,5 +25,5 @@ Optionally, if you want to see which queries it runs, you can set the `--debug` 
 Example:
 
 ```bash
-$ (venv) python checksummer.py --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items
+$ pgreplicaauditor --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items
 ```

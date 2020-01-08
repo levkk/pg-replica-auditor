@@ -10,7 +10,7 @@ import click
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.0.2'
+VERSION = '0.0.3'
 
 __version__ = VERSION
 __author__ = '<Lev Kokotov> lev.kokotov@instacart.com'
@@ -145,7 +145,7 @@ def main(table):
     print()
 
 
-@click.group()
+@click.command()
 @click.option('--primary', required=True)
 @click.option('--replica', required=True)
 @click.option('--table', required=True)

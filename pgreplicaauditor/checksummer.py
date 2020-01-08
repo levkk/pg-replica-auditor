@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -95,13 +95,13 @@ def _announce(name):
     print(Fore.YELLOW, '\bRunning check "{}"'.format(name), Fore.RESET)
 
 
-def randcheck(primary, replica, table):
+def randcheck(primary, replica, table, rows):
     _announce('random check')
     rmin, rmax = _minmax(replica, table)
 
     checked = 0
     skipped = 0
-    for _ in tqdm(range(8128)):
+    for _ in tqdm(range(rows)):
         r = _pick(replica, table, rmin, rmax)
         if r is None:
             skipped += 1
@@ -148,7 +148,7 @@ def lag(primary, replica, table):
     _result2(p - r)
 
 
-def main(table):
+def main(table, rows):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -161,7 +161,7 @@ def main(table):
     _debug2('Replica: {}'.format(replica.connection.dsn))
     _debug2('Checking table "{}"'.format(table))
 
-    randcheck(primary, replica, table)
+    randcheck(primary, replica, table, rows)
     print()
     last_1000(primary, replica, table)
     print()
@@ -174,11 +174,12 @@ def main(table):
 @click.option('--replica', required=True)
 @click.option('--table', required=True)
 @click.option('--debug/--release', default=False)
-def checksummer(primary, replica, table, debug):
+@click.option('--rows', default=ROWS)
+def checksummer(primary, replica, table, debug, rows):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
     if debug:
         os.environ['DEBUG'] = 'True'
 
-    main(table)
+    main(table, rows)

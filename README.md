@@ -35,7 +35,7 @@ This script requires three arguments:
 2. `--replica`, same as `--primary` but for the replica database,
 3. `--table`, the table to check.
 
-Optionally, if you want to see which queries it runs, you can set the `--debug` option.
+Optionally, if you want to see which queries it runs, you can set the `--debug` option. If you want to change the size of the random sample for the row comparison test, you can pass `--rows=<any number here>`.
 
 Example:
 

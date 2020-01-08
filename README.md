@@ -1,4 +1,4 @@
-# pg-replica-checksummer
+# pg-replica-auditor
 
 ## Requirements
 

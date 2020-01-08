@@ -10,7 +10,7 @@ import click
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.0.3'
+VERSION = '0.0.4'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -107,7 +107,7 @@ def main(table):
     primary, replica = connect()
 
     c1 = primary.cursor()
-    c2 = primary.cursor()
+    c2 = replica.cursor()
 
     print(Fore.BLUE, '\bprimary: {}'.format(primary.dsn), Fore.RESET)
     print(Fore.BLUE, '\breplica: {}'.format(replica.dsn), Fore.RESET)

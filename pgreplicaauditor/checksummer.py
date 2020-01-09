@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.1.2'
+VERSION = '0.1.3'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -183,3 +183,4 @@ def checksummer(primary, replica, table, debug, rows):
         os.environ['DEBUG'] = 'True'
 
     main(table, rows)
+

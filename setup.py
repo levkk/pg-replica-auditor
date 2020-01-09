@@ -29,7 +29,7 @@ setuptools.setup(
     python_requires='>=3',
     entry_points={
         'console_scripts': [
-            'pgreplicaauditor = pgreplicaauditor:main',
+            'pgreplicaauditor = pgreplicaauditor:cli',
         ]
     },
 )

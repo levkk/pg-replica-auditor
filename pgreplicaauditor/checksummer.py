@@ -193,7 +193,7 @@ def bulk_1000_sum(primary, replica, table):
 
 
 
-def main(table, rows):
+def main(table, rows, exclude_tables):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -214,6 +214,8 @@ def main(table, rows):
 
 
     for table in tables:
+        if table in exclude_tables:
+            continue
         randcheck(primary, replica, table, rows)
         print()
         last_1000(primary, replica, table)
@@ -227,17 +229,18 @@ def main(table, rows):
 
 
 @click.command()
-@click.option('--primary', required=True)
-@click.option('--replica', required=True)
-@click.option('--table', required=False)
-@click.option('--debug/--release', default=False)
-@click.option('--rows', default=ROWS)
-def checksummer(primary, replica, table, debug, rows):
+@click.option('--primary', required=True, help='DSN of the primary.')
+@click.option('--replica', required=True, help='DSN of the replica.')
+@click.option('--table', required=False, help='Scan this table only.')
+@click.option('--debug/--release', default=False, help='Print debug information as we go along.')
+@click.option('--rows', default=ROWS, help='Number of rows to sample in the randcheck.')
+@click.option('--exclude-tables', default='', help='Exclude these tables (comma separated) from the check.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
     if debug:
         os.environ['DEBUG'] = 'True'
 
-    main(table, rows)
+    main(table, rows, exclude_tables.split(','))
 

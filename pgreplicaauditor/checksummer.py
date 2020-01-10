@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.1.3'
+VERSION = '0.2.3'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -91,6 +91,11 @@ def _error(p, r):
     exit(1)
 
 
+def _error2(text):
+    print(Fore.RED, '\b{}'.format(text), Fore.RESET)
+    exit(1)
+
+
 def _announce(name):
     print(Fore.YELLOW, '\bRunning check "{}"'.format(name), Fore.RESET)
 
@@ -148,6 +153,38 @@ def lag(primary, replica, table):
     _result2(p - r)
 
 
+def minmax(primary, replica, table):
+    '''Check MIN(id) and MAX(id) match between primary and replica.'''
+    _announce('minmax')
+    pmin, pmax = _minmax(primary, table)
+    rmin, rmax = _minmax(replica, table)
+    _result2('replica: {}/{}'.format(rmin, rmax))
+    _result2('primary: {}/{}'.format(pmin, pmax))
+
+
+
+def bulk_1000(primary, replica, table):
+    '''Check that two databases have the same ids in blocks of 1000.
+    Assuming Postgres is good at retrieving adjacent blocks, this should be a fast checksum.'''
+    _announce('bulk 1000')
+    rmin, rmax = _minmax(replica, table)
+    blocks = round(rmax / 1000)
+    for _ in tqdm(range(1000)):
+        block = random.randint(1, blocks)
+        query = 'SELECT SUM(id::bigint) AS "sum" FROM {} WHERE id > %s AND id < %s'.format(table)
+        gt = block * 1000
+        lt = gt + 1000
+        psum = _exec(primary, query, (gt, lt)).fetchone()['sum']
+        rsum = _exec(replica, query, (gt, lt)).fetchone()['sum']
+        _debug2('primary: {}'.format(psum))
+        _debug2('replica: {}'.format(rsum))
+
+        if psum != rsum:
+            _error2('Sum failed at id = ({}, {}), psum = {}, rsum = {}'.format(lt, gt, psum, rsum))
+    _result2('OK')
+
+
+
 def main(table, rows):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
@@ -166,6 +203,10 @@ def main(table, rows):
     last_1000(primary, replica, table)
     print()
     lag(primary, replica, table)
+    print()
+    minmax(primary, replica, table)
+    print()
+    bulk_1000(primary, replica, table)
     print()
 
 

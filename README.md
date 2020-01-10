@@ -32,7 +32,7 @@ Take the sum of the `id` column in chunks of 1000 and compare it between databas
 Using virtualenv, `pip install -r requirements.txt`
 
 ### Production
-Using Pypi, `pip install pgreplicaauditor`.
+Using Pypi, `pip install pg-replica-auditor`.
 
 ## Usage
 

@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.2.3'
+VERSION = '0.3.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'

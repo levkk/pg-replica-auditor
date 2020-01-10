@@ -9,10 +9,16 @@ These tests assume that `id` and `updated_at` columns exist and have indexes for
 Runs row comparisons between primary and replica using two methods:
 
 1. select 8128 rows (or number of rows given to `--rows`) at random between `MIN(id)` and `MAX(id)`
-2. select all rows between `MAX(id)` and `MAX(id) - 1000`.
+2. select the last 1000 rows.
 
 #### Replica lag
 Checks for "replica lag" by comparing `MAX(updated_at)` on the given table on both databases.
+
+#### MinMax
+Checks that the minimum `id` and the maximum `id` match on both replica and primary. These can drift _a little_ because of replica lag.
+
+#### Bulk 1000 Sum
+Take the sum of the `id` column in chunks of 1000 and compare it between databases. This assumes that retrieving rows in bulk is easier than at random and runs faster than the row comparison and can scan more rows.
 
 
 ## Requirements
@@ -33,9 +39,12 @@ Using Pypi, `pip install pgreplicaauditor`.
 This script requires three arguments:
 1. `--primary`, any acceptable Postgres connection string (incl. DSN),
 2. `--replica`, same as `--primary` but for the replica database,
-3. `--table`, the table to check.
 
-Optionally, if you want to see which queries it runs, you can set the `--debug` option. If you want to change the size of the random sample for the row comparison test, you can pass `--rows=<any number here>`.
+Optional arguments:
+1. `--exclude-tables`, excludes the comma-separated tables from the scan,
+2. `--table`, only scans this table,
+3. `--debug`, will print debugging information,
+4. `--rows`, will scan this many rows in the row comparisons check.
 
 Example:
 

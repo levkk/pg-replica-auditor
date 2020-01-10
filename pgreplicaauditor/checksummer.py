@@ -163,10 +163,10 @@ def minmax(primary, replica, table):
 
 
 
-def bulk_1000(primary, replica, table):
+def bulk_1000_sum(primary, replica, table):
     '''Check that two databases have the same ids in blocks of 1000.
     Assuming Postgres is good at retrieving adjacent blocks, this should be a fast checksum.'''
-    _announce('bulk 1000')
+    _announce('bulk 1000 sum')
     rmin, rmax = _minmax(replica, table)
     blocks = round(rmax / 1000)
     for _ in tqdm(range(1000)):
@@ -206,7 +206,7 @@ def main(table, rows):
     print()
     minmax(primary, replica, table)
     print()
-    bulk_1000(primary, replica, table)
+    bulk_1000_sum(primary, replica, table)
     print()
 
 

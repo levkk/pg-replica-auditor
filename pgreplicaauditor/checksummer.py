@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.6.0'
+VERSION = '0.6.1'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -233,11 +233,11 @@ def main(table, rows, exclude_tables, lag_column, show_skipped):
             continue
         lag(primary, replica, table, lag_column)
         print()
-        randcheck(primary, replica, table, rows, show_skipped)
-        print()
         last_1000(primary, replica, table, show_skipped)
         print()
         minmax(primary, replica, table)
+        print()
+        randcheck(primary, replica, table, rows, show_skipped)
         print()
         bulk_1000_sum(primary, replica, table)
         print()

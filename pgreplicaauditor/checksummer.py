@@ -77,13 +77,15 @@ def _pick(cursor, table, mi, ma):
 
     result = None
     attempts = 0
+    ids = []
 
     while result is None and attempts < 3:
         id_ = random.randint(mi, ma)
         result = _get(cursor, table, id_)
         attempts += 1
+        ids.append(id_)
 
-    return result
+    return result, ids
 
 
 def _result(checked, skipped):
@@ -119,9 +121,11 @@ def randcheck(primary, replica, table, rows, show_skipped):
     checked = 0
     skipped = 0
     for _ in tqdm(range(rows)):
-        r = _pick(replica, table, rmin, rmax)
+        r, attempts = _pick(replica, table, rmin, rmax)
         if r is None:
             skipped += 1
+            if show_skipped:
+                _debug3('Skipped: {}'.format(', '.join(map(lambda x: str(x), attempts))))
             continue
         p = _get(primary, table, r['id'])
         if p is None:

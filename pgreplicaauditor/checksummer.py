@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -26,7 +26,11 @@ def _debug(cursor):
 
 def _debug2(text):
     if os.getenv('DEBUG'):
-        print(Fore.BLUE, '\b{}'.format(text), Fore.RESET)
+        _debug3(text)
+
+
+def _debug3(text):
+    print(Fore.BLUE, '\b{}'.format(text), Fore.RESET)
 
 
 def connect():
@@ -143,7 +147,7 @@ def last_1000(primary, replica, table, show_skipped):
         if p is None or r is None:
             skipped += 1
             if show_skipped:
-                _debug2('Skipped: {}'.format(id_))
+                _debug3('Skipped: {}'.format(id_))
             continue
         assert p['id'] == r['id']
         if dict(p) != dict(r):

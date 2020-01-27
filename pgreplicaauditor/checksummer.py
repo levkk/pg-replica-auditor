@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.3.1'
+VERSION = '0.4.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -150,15 +150,20 @@ def last_1000(primary, replica, table):
     _result(checked, skipped)
 
 
-def lag(primary, replica, table):
+def lag(primary, replica, table, column='updated_at'):
     '''Check logical lag between primary and replica table using Django/Rails "updated_at".'''
     _announce('replica lag', table)
-    query = 'SELECT MAX(updated_at) AS "updated_at" FROM "{table}"'.format(table=table)
+    query = 'SELECT MAX({column}) AS "max" FROM "{table}"'.format(column=column, table=table)
     primary = _exec(primary, query)
     replica = _exec(replica, query)
-    p = primary.fetchone()['updated_at']
-    r = replica.fetchone()['updated_at']
-    _result2(p - r)
+    p = primary.fetchone()['max']
+    r = replica.fetchone()['max']
+
+    # Table is empty, so no lag is possible.
+    if p is None and r is None:
+        _result2('0')
+    else:
+        _result2(p - r)
 
 
 def minmax(primary, replica, table):
@@ -193,7 +198,7 @@ def bulk_1000_sum(primary, replica, table):
 
 
 
-def main(table, rows, exclude_tables):
+def main(table, rows, exclude_tables, lag_column):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -220,7 +225,7 @@ def main(table, rows, exclude_tables):
         print()
         last_1000(primary, replica, table)
         print()
-        lag(primary, replica, table)
+        lag(primary, replica, table, lag_column)
         print()
         minmax(primary, replica, table)
         print()
@@ -235,12 +240,13 @@ def main(table, rows, exclude_tables):
 @click.option('--debug/--release', default=False, help='Print debug information as we go along.')
 @click.option('--rows', default=ROWS, help='Number of rows to sample in the randcheck.')
 @click.option('--exclude-tables', default='', help='Exclude these tables (comma separated) from the check.')
-def checksummer(primary, replica, table, debug, rows, exclude_tables):
+@click.option('--lag-column', default='updated_at', help='Use this column to compute replica lag.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
     if debug:
         os.environ['DEBUG'] = 'True'
 
-    main(table, rows, exclude_tables.split(','))
+    main(table, rows, exclude_tables.split(','), lag_column)
 

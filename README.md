@@ -45,7 +45,8 @@ Optional arguments:
 2. `--table`, only scans this table,
 3. `--debug`, will print debugging information,
 4. `--rows`, will scan this many rows in the row comparisons check,
-5. `--lag-column`, will use this column for the replica lag check.
+5. `--lag-column`, will use this column for the replica lag check,
+6. `--show-skipped`, will print the skipped rows in the Last 1000 check.
 
 Example:
 

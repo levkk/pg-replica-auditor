@@ -12,7 +12,7 @@ import random
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.4.0'
+VERSION = '0.5.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -108,7 +108,7 @@ def _announce(name, table):
     print(Fore.YELLOW, '\bRunning check "{}" on table "{}"'.format(name, table), Fore.RESET)
 
 
-def randcheck(primary, replica, table, rows):
+def randcheck(primary, replica, table, rows, show_skipped):
     _announce('random check', table)
     rmin, rmax = _minmax(replica, table)
 
@@ -130,7 +130,7 @@ def randcheck(primary, replica, table, rows):
     _result(checked, skipped)
 
 
-def last_1000(primary, replica, table):
+def last_1000(primary, replica, table, show_skipped):
     _announce('last 1000', table)
     _, rmax = _minmax(replica, table)
     rmin = rmax - 1000
@@ -142,6 +142,8 @@ def last_1000(primary, replica, table):
         r = _get(replica, table, id_)
         if p is None or r is None:
             skipped += 1
+            if show_skipped:
+                _debug2('Skipped: {}'.format(id_))
             continue
         assert p['id'] == r['id']
         if dict(p) != dict(r):
@@ -198,7 +200,7 @@ def bulk_1000_sum(primary, replica, table):
 
 
 
-def main(table, rows, exclude_tables, lag_column):
+def main(table, rows, exclude_tables, lag_column, show_skipped):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -221,11 +223,11 @@ def main(table, rows, exclude_tables, lag_column):
     for table in tables:
         if table in exclude_tables:
             continue
-        randcheck(primary, replica, table, rows)
-        print()
-        last_1000(primary, replica, table)
-        print()
         lag(primary, replica, table, lag_column)
+        print()
+        randcheck(primary, replica, table, rows, show_skipped)
+        print()
+        last_1000(primary, replica, table, show_skipped)
         print()
         minmax(primary, replica, table)
         print()
@@ -241,12 +243,13 @@ def main(table, rows, exclude_tables, lag_column):
 @click.option('--rows', default=ROWS, help='Number of rows to sample in the randcheck.')
 @click.option('--exclude-tables', default='', help='Exclude these tables (comma separated) from the check.')
 @click.option('--lag-column', default='updated_at', help='Use this column to compute replica lag.')
-def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column):
+@click.option('--show-skipped/--hide-skipped', default=False, help='Print skipped IDs for debugging.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
     if debug:
         os.environ['DEBUG'] = 'True'
 
-    main(table, rows, exclude_tables.split(','), lag_column)
+    main(table, rows, exclude_tables.split(','), lag_column, show_skipped)
 

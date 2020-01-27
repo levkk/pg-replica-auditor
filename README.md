@@ -3,7 +3,7 @@
 ## Features
 
 ### Assumptions
-These tests assume that `id` and `updated_at` columns exist and have indexes for efficient querying and that the table exists on both databases.
+These tests assume that `id` and `updated_at` (or column specified in `--lag-column`) columns exist and have indexes for efficient querying and that the table exists on both databases.
 
 #### Row comparison
 Runs row comparisons between primary and replica using two methods:
@@ -44,10 +44,11 @@ Optional arguments:
 1. `--exclude-tables`, excludes the comma-separated tables from the scan,
 2. `--table`, only scans this table,
 3. `--debug`, will print debugging information,
-4. `--rows`, will scan this many rows in the row comparisons check.
+4. `--rows`, will scan this many rows in the row comparisons check,
+5. `--lag-column`, will use this column for the replica lag check.
 
 Example:
 
 ```bash
-$ pgreplicaauditor --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items
+$ pgreplicaauditor --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items --lag-column created_at
 ```

@@ -8,11 +8,12 @@ import colorama
 import click
 import psycopg2.extras
 import random
+from datadiff import diff
 
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.6.1'
+VERSION = '0.7.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -100,8 +101,9 @@ def _result2(text):
 def _error(p, r):
     id_ = p['id']
     print(Fore.RED, '\bRows at id = {} are different'.format(id_), Fore.RESET)
-    print('primary: {}'.format(p))
-    print('replica: {}'.format(r))
+    print(diff(p, r))
+    _debug2('primary: {}'.format(p))
+    _debug2('replica: {}'.format(r))
     exit(1)
 
 

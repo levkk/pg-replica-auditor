@@ -1,5 +1,7 @@
 # pg-replica-auditor
 
+A tool to compare a PostgreSQL logical replica to its primary. It can help detect data inconsistencies.
+
 ## Features
 
 ### Assumptions

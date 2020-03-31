@@ -18,7 +18,8 @@ setuptools.setup(
         'Click>=7.0',
         'colorama>=0.4.3',
         'psycopg2>=2.8.4',
-        'tqdm>=4.41.1'
+        'tqdm>=4.41.1',
+        'datadiff>=2.0.0'
     ],
     packages=setuptools.find_packages(),
     classifiers=[

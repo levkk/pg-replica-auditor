@@ -106,12 +106,14 @@ def _error(p, r):
     print(diff(p, r))
     _debug2('primary: {}'.format(p))
     _debug2('replica: {}'.format(r))
-    exit(1)
+    if os.getenv('EXIT_ON_ERROR'):
+        exit(1)
 
 
 def _error2(text):
     print(Fore.RED, '\b{}'.format(text), Fore.RESET)
-    exit(1)
+    if os.getenv('EXIT_ON_ERROR'):
+        exit(1)
 
 
 def _announce(name, table):
@@ -119,32 +121,34 @@ def _announce(name, table):
 
 
 def randcheck(primary, replica, table, rows, show_skipped):
+    '''Check rows at random.'''
     _announce('random check', table)
-    rmin, rmax = _minmax(replica, table)
+    rmin, rmax = _minmax(primary, table)
 
     checked = 0
     skipped = 0
     for _ in tqdm(range(rows)):
-        r, attempts = _pick(replica, table, rmin, rmax)
-        if r is None:
+        p, attempts = _pick(primary, table, rmin, rmax)
+        if p is None:
             skipped += 1
             if show_skipped:
                 _debug3('Skipped: {}'.format(', '.join(map(lambda x: str(x), attempts))))
             continue
-        p = _get(primary, table, r['id'])
-        if p is None:
-            raise Exception('Replica is "ahead" of the primary, it has rows primary does not.')
-        assert r['id'] == p['id']
-        _debug2('Comparing id = {}'.format(r['id']))
-        if dict(p) != dict(r):
-            _error(dict(p), dict(r))
-        checked += 1
+        r = _get(replica, table, p['id'])
+        if r is None:
+            _error2('Row does not exist on replica at id = {}'.format(p['id']))
+        else:
+            assert r['id'] == p['id'] # Kind of obvious, but let's not leave anything out
+            _debug2('Comparing id = {}'.format(r['id']))
+            if dict(p) != dict(r):
+                _error(dict(p), dict(r))
+            checked += 1
     _result(checked, skipped)
 
 
 def last_1000(primary, replica, table, show_skipped):
     _announce('last 1000', table)
-    _, rmax = _minmax(replica, table)
+    _, rmax = _minmax(primary, table)
     rmin = rmax - 1000
 
     checked = 0
@@ -176,6 +180,8 @@ def lag(primary, replica, table, column='updated_at'):
     # Table is empty, so no lag is possible.
     if p is None and r is None:
         _result2('0')
+    elif r is None:
+        _error2('Replica has no rows / no values in "{}" column'.format(column))
     else:
         _result2(p - r)
 
@@ -185,8 +191,14 @@ def minmax(primary, replica, table):
     _announce('minmax', table)
     pmin, pmax = _minmax(primary, table)
     rmin, rmax = _minmax(replica, table)
-    _result2('replica: {}/{}'.format(rmin, rmax))
-    _result2('primary: {}/{}'.format(pmin, pmax))
+
+    if rmin != pmin:
+        _error2('Minimum does not match. replica: {}, primary: {}'.format(rmin, pmin))
+    elif rmax != pmax:
+        _error2('Maximum does not match. replica: {}, primary: {}'.format(rmax, pmax))
+    else:
+        _result2('replica: {}/{}'.format(rmin, rmax))
+        _result2('primary: {}/{}'.format(pmin, pmax))
 
 
 
@@ -227,7 +239,8 @@ def slow_count_all_rows(primary, replica, table, column, before = datetime.now()
 
     if rcount != pcount:
         _error2('Count failed with replica = {} and primary = {}'.format(rcount, pcount))
-    _result2('{}'.format(rcount))
+    else:
+        _result2('{} rows'.format(rcount))
 
 
 def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
@@ -277,12 +290,15 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
 @click.option('--lag-column', default='updated_at', help='Use this column to compute replica lag.')
 @click.option('--show-skipped/--hide-skipped', default=False, help='Print skipped IDs for debugging.')
 @click.option('--count-before', default=datetime.now(), help='Count rows that were created/updated before this timestamp.')
-def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before):
+@click.option('--exit-on-error/--continue-on-error', default=True, help='Exit immediately when possible error condition found.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
     if debug:
         os.environ['DEBUG'] = 'True'
+    if exit_on_error:
+        os.environ['EXIT_ON_ERROR'] = 'True'
 
     main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before)
 

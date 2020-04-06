@@ -255,7 +255,6 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
             continue
         slow_count_all_rows(primary, replica, table, lag_column, count_before)
         print()
-        exit(0)
         lag(primary, replica, table, lag_column)
         print()
         last_1000(primary, replica, table, show_skipped)

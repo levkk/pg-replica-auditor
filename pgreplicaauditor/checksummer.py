@@ -9,6 +9,8 @@ import click
 import psycopg2.extras
 import random
 from datadiff import diff
+from datetime import datetime
+from multiprocessing.pool import ThreadPool
 
 colorama.init()
 
@@ -193,7 +195,7 @@ def bulk_1000_sum(primary, replica, table):
     Assuming Postgres is good at retrieving adjacent blocks, this should be a fast checksum.'''
     _announce('bulk 1000 sum', table)
     rmin, rmax = _minmax(replica, table)
-    blocks = round(rmax / 1000)
+    blocks = max(round(rmax / 1000), 1) # Never have 0 here if not enough rows
     for _ in tqdm(range(1000)):
         block = random.randint(1, blocks)
         query = 'SELECT SUM(id::bigint) AS "sum" FROM {} WHERE id > %s AND id < %s'.format(table)
@@ -209,8 +211,26 @@ def bulk_1000_sum(primary, replica, table):
     _result2('OK')
 
 
+def slow_count_all_rows(primary, replica, table, column, before = datetime.now()):
+    '''Sum the number of rows in a table. This will be very slow if the table is large.'''
+    _announce('slow count all rows', table)
+    query = 'SELECT COUNT({}) AS "count" FROM {} WHERE {} <= %s'.format(column, table, column)
 
-def main(table, rows, exclude_tables, lag_column, show_skipped):
+    ppool = ThreadPool(processes=1)
+    rpool = ThreadPool(processes=1)
+
+    presult = ppool.apply_async(_exec, (primary, query, (before,)))
+    rresult = rpool.apply_async(_exec, (replica, query, (before,)))
+
+    pcount = presult.get().fetchone()['count']
+    rcount = rresult.get().fetchone()['count']
+
+    if rcount != pcount:
+        _error2('Count failed with replica = {} and primary = {}'.format(rcount, pcount))
+    _result2('{}'.format(rcount))
+
+
+def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -233,6 +253,9 @@ def main(table, rows, exclude_tables, lag_column, show_skipped):
     for table in tables:
         if table in exclude_tables:
             continue
+        slow_count_all_rows(primary, replica, table, lag_column, count_before)
+        print()
+        exit(0)
         lag(primary, replica, table, lag_column)
         print()
         last_1000(primary, replica, table, show_skipped)
@@ -254,12 +277,13 @@ def main(table, rows, exclude_tables, lag_column, show_skipped):
 @click.option('--exclude-tables', default='', help='Exclude these tables (comma separated) from the check.')
 @click.option('--lag-column', default='updated_at', help='Use this column to compute replica lag.')
 @click.option('--show-skipped/--hide-skipped', default=False, help='Print skipped IDs for debugging.')
-def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped):
+@click.option('--count-before', default=datetime.now(), help='Count rows that were created/updated before this timestamp.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
     if debug:
         os.environ['DEBUG'] = 'True'
 
-    main(table, rows, exclude_tables.split(','), lag_column, show_skipped)
+    main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before)
 

@@ -15,7 +15,7 @@ from multiprocessing.pool import ThreadPool
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.8.0'
+VERSION = '0.9.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'

@@ -15,7 +15,7 @@ from multiprocessing.pool import ThreadPool
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.9.0'
+VERSION = '0.9.1'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -226,7 +226,7 @@ def bulk_1000_sum(primary, replica, table):
 def slow_count_all_rows(primary, replica, table, column, before = datetime.now()):
     '''Sum the number of rows in a table. This will be very slow if the table is large.'''
     _announce('slow count all rows', table)
-    query = 'SELECT COUNT({}) AS "count" FROM {} WHERE {} <= %s'.format(column, table, column)
+    query = 'SET statement_timeout = 0; SELECT COUNT({}) AS "count" FROM {} WHERE {} <= %s'.format(column, table, column)
 
     ppool = ThreadPool(processes=1)
     rpool = ThreadPool(processes=1)

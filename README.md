@@ -22,6 +22,8 @@ Checks that the minimum `id` and the maximum `id` match on both replica and prim
 #### Bulk 1000 Sum
 Take the sum of the `id` column in chunks of 1000 and compare it between databases. This assumes that retrieving rows in bulk is easier than at random and runs faster than the row comparison and can scan more rows.
 
+#### Count all rows
+Counts all the rows using `COUNT(lag_column)` to make sure row counts match on both replica and primary. Very slow, since it has to do a full scan (index or table). Adjust `--count-before` to count all columns before a timestamp on `--lag-column`, or `updated_at` by default.
 
 ## Requirements
 
@@ -48,10 +50,11 @@ Optional arguments:
 3. `--debug`, will print debugging information,
 4. `--rows`, will scan this many rows in the row comparisons check,
 5. `--lag-column`, will use this column for the replica lag check,
-6. `--show-skipped`, will print the skipped rows in the Last 1000 check.
+6. `--show-skipped`, will print the skipped rows in the Last 1000 check,
+7. `--count-before`, will count all rows in the table created/updated before this timestamp.
 
 Example:
 
 ```bash
-$ pgreplicaauditor --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items --lag-column created_at
+$ pgreplicaauditor --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items --lag-column created_at --count-before="2020-04-06"
 ```

@@ -253,8 +253,6 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
     for table in tables:
         if table in exclude_tables:
             continue
-        slow_count_all_rows(primary, replica, table, lag_column, count_before)
-        print()
         lag(primary, replica, table, lag_column)
         print()
         last_1000(primary, replica, table, show_skipped)
@@ -264,6 +262,8 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
         randcheck(primary, replica, table, rows, show_skipped)
         print()
         bulk_1000_sum(primary, replica, table)
+        print()
+        slow_count_all_rows(primary, replica, table, lag_column, count_before)
         print()
 
 

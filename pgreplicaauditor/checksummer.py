@@ -11,11 +11,12 @@ import random
 from datadiff import diff
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
+import math
 
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.9.1'
+VERSION = '0.10.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -243,7 +244,27 @@ def slow_count_all_rows(primary, replica, table, column, before = datetime.now()
         _result2('{} rows'.format(rcount))
 
 
-def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
+def find_missing_seq_records(primary, replica, table, step_size=0.01):
+    '''This assumes that a sequential chunk of records will be missing
+    we will hit one of those missing records.'''
+    _announce('find missing records', table)
+    pmin, pmax = _minmax(primary, table)
+    query = 'SELECT * FROM {} WHERE id = %s'.format(table)
+    step_size = round((pmax - pmin) * step_size)
+    steps = round(pmax / step_size)
+
+    for step in tqdm(range(steps)):
+        id_ = pmin + step * step_size
+        r = _exec(replica, query, (id_,)).fetchone()
+        if not r:
+            p = _exec(primary, query, (id_,)).fetchone()
+            if p:
+                _error2('Row does not exist on replica at id = {}'.format(id_))
+
+    _result2('OK')
+
+
+def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, step_size):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -272,6 +293,8 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
         print()
         minmax(primary, replica, table)
         print()
+        find_missing_seq_records(primary, replica, table, step_size)
+        print()
         randcheck(primary, replica, table, rows, show_skipped)
         print()
         bulk_1000_sum(primary, replica, table)
@@ -291,7 +314,8 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before):
 @click.option('--show-skipped/--hide-skipped', default=False, help='Print skipped IDs for debugging.')
 @click.option('--count-before', default=datetime.now(), help='Count rows that were created/updated before this timestamp.')
 @click.option('--exit-on-error/--continue-on-error', default=True, help='Exit immediately when possible error condition found.')
-def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error):
+@click.option('--step-size', default=0.01, help='The size of the search step for find missing sequential records test.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error, step_size):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
@@ -300,5 +324,5 @@ def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column
     if exit_on_error:
         os.environ['EXIT_ON_ERROR'] = 'True'
 
-    main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before)
+    main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before, step_size)
 

@@ -25,6 +25,9 @@ Take the sum of the `id` column in chunks of 1000 and compare it between databas
 #### Count all rows
 Counts all the rows using `COUNT(lag_column)` to make sure row counts match on both replica and primary. Very slow, since it has to do a full scan (index or table). Adjust `--count-before` to count all columns before a timestamp on `--lag-column`, or `updated_at` by default.
 
+#### Missing Sequential Records
+Go throught the table with a step size of `MAX(id)` * `--step-size=0.01`. The assumption is that if records will be missing, they will be missing in bulk, grouped together.
+
 ## Requirements
 
 1. Python 3
@@ -51,7 +54,8 @@ Optional arguments:
 4. `--rows`, will scan this many rows in the row comparisons check,
 5. `--lag-column`, will use this column for the replica lag check,
 6. `--show-skipped`, will print the skipped rows in the Last 1000 check,
-7. `--count-before`, will count all rows in the table created/updated before this timestamp.
+7. `--count-before`, will count all rows in the table created/updated before this timestamp,
+8. `--step-size`, will decrease the step size for missing sequential records search.
 
 Example:
 

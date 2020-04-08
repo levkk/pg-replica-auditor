@@ -60,5 +60,5 @@ Optional arguments:
 Example:
 
 ```bash
-$ pgreplicaauditor --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items --lag-column created_at --count-before="2020-04-06"
+$ pgreplicaauditor --primary=postgres://primary-db.amazonaws.com:5432/my_db --replica=postgres://replica-db.amazonaws.com:5432/my_db --table=immutable_items --lag-column=created_at --count-before="2020-04-06"
 ```

@@ -16,7 +16,7 @@ import math
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.10.1'
+VERSION = '0.11.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -245,22 +245,23 @@ def slow_count_all_rows(primary, replica, table, column, before = datetime.now()
 
 
 def find_missing_seq_records(primary, replica, table, step_size):
-    '''This assumes that a sequential chunk of records will be missing
-    we will hit one of those missing records.'''
+    '''This assumes that a sequential chunk of records will be missing or not updated,
+    we will hit one of those records.'''
     _announce('find missing records', table)
     pmin, pmax = _minmax(primary, table)
-    query = 'SELECT * FROM {} WHERE id = %s'.format(table)
     step_size = round((pmax - pmin) * step_size)
     steps = round(pmax / step_size)
 
     for step in tqdm(range(steps)):
         id_ = pmin + step * step_size
-        r = _exec(replica, query, (id_,)).fetchone()
-        if not r:
-            p = _exec(primary, query, (id_,)).fetchone()
-            if p:
-                _error2('Row does not exist on replica at id = {}'.format(id_))
-
+        r = _get(replica, table, id_)
+        p = _get(primary, table, id_)
+        if not r and p:
+            _error2('Row does not exist on replica at id = {}'.format(id_))
+            return
+        if p != r:
+           _error(p, r)
+           return
     _result2('OK')
 
 

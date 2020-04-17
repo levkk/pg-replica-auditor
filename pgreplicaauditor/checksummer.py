@@ -16,7 +16,7 @@ import math
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.11.0'
+VERSION = '0.12.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -364,7 +364,7 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
 @click.option('--show-skipped/--hide-skipped', default=False, help='Print skipped IDs for debugging.')
 @click.option('--count-before', default=datetime.now(), help='Count rows that were created/updated before this timestamp.')
 @click.option('--exit-on-error/--continue-on-error', default=True, help='Exit immediately when possible error condition found.')
-@click.option('--step-size', default=0.0001, help='The size of the search step for find missing sequential records test.')
+@click.option('--step-size', default=0.0001, help='The size of the search step for checksum and sequential missing records tests.')
 def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error, step_size):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary

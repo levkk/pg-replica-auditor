@@ -92,6 +92,23 @@ def _pick(cursor, table, mi, ma):
     return result, ids
 
 
+def _columns(cursor, table):
+    query = """
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name   = %s;
+    """
+    return list(map(lambda row: row['column_name'], _exec(cursor, query, (table,)).fetchall()))
+
+def _steps(cursor, table, step_size):
+    pmin, pmax = _minmax(cursor, table)
+    step_size = max(round((pmax - pmin) * step_size), 1)
+    steps = round(pmax / step_size)
+
+    return steps, step_size, pmin, pmax
+
+
 def _result(checked, skipped):
     print(Fore.GREEN, '\bChecked: {}'.format(checked), Fore.RESET)
     print(Fore.GREEN, '\bSkipped: {}'.format(skipped), Fore.RESET)
@@ -248,9 +265,7 @@ def find_missing_seq_records(primary, replica, table, step_size):
     '''This assumes that a sequential chunk of records will be missing or not updated,
     we will hit one of those records.'''
     _announce('find missing records', table)
-    pmin, pmax = _minmax(primary, table)
-    step_size = round((pmax - pmin) * step_size)
-    steps = round(pmax / step_size)
+    steps, step_size, pmin, pmax = _steps(primary, table, step_size)
 
     for step in tqdm(range(steps)):
         id_ = pmin + step * step_size
@@ -263,6 +278,36 @@ def find_missing_seq_records(primary, replica, table, step_size):
            _error(p, r)
            return
     _result2('OK')
+
+
+def checksum_test(primary, replica, table, step_size):
+    _announce('checksum records', table)
+    query = """
+    SELECT SUM(
+        (
+            'x' || lpad(right(COALESCE(md5(cast(({}) AS TEXT)), '12345'), 5), 8, '0')
+        )::bit(32)::bigint
+    ) AS "sum" FROM {} WHERE id >= %s AND id <= %s
+    """
+    pcolumns = ','.join(_columns(primary, table))
+    rcolumns = ','.join(_columns(primary, table))
+
+    if pcolumns != rcolumns:
+        _error2('Columns on replica do not match columns on primary.')
+        return
+    else:
+        query = query.format(pcolumns, table)
+        steps, step_size, pmin, pmax = _steps(primary, table, step_size)
+        for step in tqdm(range(steps)):
+            start = pmin + step * step_size
+            end = start + step_size
+            r = _exec(replica, query, (start, end)).fetchone()['sum']
+            p = _exec(primary, query, (start, end)).fetchone()['sum']
+
+            if r != p:
+                _error2('Sum is different at start = {} and end = {}'.format(start, end))
+                return
+    _result2('OK.')
 
 
 def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, step_size):
@@ -300,6 +345,10 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
         print()
         bulk_1000_sum(primary, replica, table)
         print()
+        # This will checksum everything
+        checksum_test(primary, replica, table, step_size)
+        print()
+        # And count all the rows
         slow_count_all_rows(primary, replica, table, lag_column, count_before)
         print()
 

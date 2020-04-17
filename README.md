@@ -26,7 +26,10 @@ Take the sum of the `id` column in chunks of 1000 and compare it between databas
 Counts all the rows using `COUNT(lag_column)` to make sure row counts match on both replica and primary. Very slow, since it has to do a full scan (index or table). Adjust `--count-before` to count all columns before a timestamp on `--lag-column`, or `updated_at` by default.
 
 #### Missing Sequential Records
-Go throught the table with a step size of `MAX(id)` * `--step-size=0.01`. The assumption is that if records will be missing, they will be missing in bulk, grouped together.
+Go throught the table with a step size of `MAX(id)` * `--step-size=0.0001`. The assumption is that if records will be missing, they will be missing in bulk, grouped together.
+
+### Checksum all records in chunks
+Go through the table with a step size of `MAX(id)` * `--step-size=0.0001`. Sum the MD5 hashes of all columns. The assumption is that MD5 checksum is quick and retrieving adjacent rows is also quick. The smaller the step size, the more granular the checksum area is, narrowing down the problematic area of the table; the checksum query will run faster as well, since it has to checksum less rows.
 
 ## Requirements
 

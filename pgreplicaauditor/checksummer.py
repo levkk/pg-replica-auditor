@@ -16,7 +16,7 @@ import math
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.11.0'
+VERSION = '0.12.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -265,7 +265,23 @@ def find_missing_seq_records(primary, replica, table, step_size):
     _result2('OK')
 
 
-def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, step_size):
+def check_one_row(primary, replica, table, row_id):
+    '''Just check one row...'''
+    _announce('one row check', table)
+    r = _get(replica, table, row_id)
+    p = _get(primary, table, row_id)
+
+    if p is None:
+        _error2('Row does not exist on the primary.')
+    elif r is None:
+        _error2('Row does not exist on the replica.')
+    elif p != r:
+        _error(p, r)
+    else:
+        _result2('OK.')
+
+
+def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, step_size, row_id):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -288,6 +304,11 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
     for table in tables:
         if table in exclude_tables:
             continue
+        # So you found the one, eh? <3
+        if row_id:
+            check_one_row(primary, replica, table, row_id)
+            print()
+            return
         lag(primary, replica, table, lag_column)
         print()
         last_1000(primary, replica, table, show_skipped)
@@ -316,7 +337,8 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
 @click.option('--count-before', default=datetime.now(), help='Count rows that were created/updated before this timestamp.')
 @click.option('--exit-on-error/--continue-on-error', default=True, help='Exit immediately when possible error condition found.')
 @click.option('--step-size', default=0.0001, help='The size of the search step for find missing sequential records test.')
-def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error, step_size):
+@click.option('--row-id', default=None, help='Compare this specific row given id.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error, step_size, row_id):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
@@ -325,5 +347,5 @@ def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column
     if exit_on_error:
         os.environ['EXIT_ON_ERROR'] = 'True'
 
-    main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before, step_size)
+    main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before, step_size, row_id)
 

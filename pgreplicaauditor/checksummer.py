@@ -16,7 +16,7 @@ import math
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.12.0'
+VERSION = '0.13.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -281,7 +281,7 @@ def check_one_row(primary, replica, table, row_id):
         _result2('OK.')
 
 
-def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, step_size, row_id):
+def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, step_size, row_id, slow_check):
     print(Fore.CYAN, '\b=== Welcome to the Postgres auditor v{} ==='.format(VERSION), Fore.RESET)
     print()
 
@@ -321,8 +321,9 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
         print()
         bulk_1000_sum(primary, replica, table)
         print()
-        slow_count_all_rows(primary, replica, table, lag_column, count_before)
-        print()
+        if slow_check:
+            slow_count_all_rows(primary, replica, table, lag_column, count_before)
+            print()
 
 
 @click.command()
@@ -338,7 +339,8 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
 @click.option('--exit-on-error/--continue-on-error', default=True, help='Exit immediately when possible error condition found.')
 @click.option('--step-size', default=0.0001, help='The size of the search step for find missing sequential records test.')
 @click.option('--row-id', default=None, help='Compare this specific row given id.')
-def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error, step_size, row_id):
+@click.option('--slow-check/--no-slow-check', default=True, help='Run/Do not run the slow check that counts all rows.')
+def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error, step_size, row_id, slow_check):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
 
@@ -347,5 +349,5 @@ def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column
     if exit_on_error:
         os.environ['EXIT_ON_ERROR'] = 'True'
 
-    main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before, step_size, row_id)
+    main(table, rows, exclude_tables.split(','), lag_column, show_skipped, count_before, step_size, row_id, slow_check)
 

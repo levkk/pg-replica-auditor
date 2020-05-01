@@ -16,7 +16,7 @@ import math
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.13.0'
+VERSION = '0.14.0'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -119,6 +119,11 @@ def _error2(text):
 
 def _announce(name, table):
     print(Fore.YELLOW, '\bRunning check "{}" on table "{}"'.format(name, table), Fore.RESET)
+
+
+def _check_if_empty(cursor, table):
+    cursor.execute("SELECT * FROM {} LIMIT 1".format(table))
+    return cursor.fetchone() is None
 
 
 def randcheck(primary, replica, table, rows, show_skipped):
@@ -309,6 +314,21 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
             check_one_row(primary, replica, table, row_id)
             print()
             return
+
+        # Stop checking empty tables, it breaks my math
+        pempty = _check_if_empty(primary, table)
+        rempty = _check_if_empty(replica, table)
+
+        if pempty and rempty:
+            _result2('Skipping empty table {}'.format(table))
+            continue
+        elif pempty and not rempty:
+            _error2('"{}" is empty on the primary but has rows on the replica.'.format(table))
+            continue
+        elif not pempty and rempty:
+            _error2('"{}" has rows on the primary but is empty on the replica.'.format(table))
+            continue
+
         lag(primary, replica, table, lag_column)
         print()
         last_1000(primary, replica, table, show_skipped)

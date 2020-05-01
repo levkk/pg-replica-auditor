@@ -16,7 +16,7 @@ import math
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.14.0'
+VERSION = '0.14.1'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -309,6 +309,9 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
     for table in tables:
         if table in exclude_tables:
             continue
+        # Skip pg_stat_statements obviously
+        if table == 'pg_stat_statements':
+            continue
         # So you found the one, eh? <3
         if row_id:
             check_one_row(primary, replica, table, row_id)
@@ -320,7 +323,7 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
         rempty = _check_if_empty(replica, table)
 
         if pempty and rempty:
-            _result2('Skipping empty table {}'.format(table))
+            _result2('Skipping empty table "{}"'.format(table))
             continue
         elif pempty and not rempty:
             _error2('"{}" is empty on the primary but has rows on the replica.'.format(table))

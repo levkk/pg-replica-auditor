@@ -16,7 +16,7 @@ import math
 colorama.init()
 
 ROWS = 8128
-VERSION = '0.14.1'
+VERSION = '0.14.2'
 
 __version__ = VERSION
 __author__ = 'Lev Kokotov <lev.kokotov@instacart.com>'
@@ -254,8 +254,9 @@ def find_missing_seq_records(primary, replica, table, step_size):
     we will hit one of those records.'''
     _announce('find missing records', table)
     pmin, pmax = _minmax(primary, table)
-    step_size = round((pmax - pmin) * step_size)
-    steps = round(pmax / step_size)
+    range_ = pmax - pmin
+    step_size = round(range_ * step_size)
+    steps = round(range_ / step_size)
 
     for step in tqdm(range(steps)):
         id_ = pmin + step * step_size

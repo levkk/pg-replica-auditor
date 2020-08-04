@@ -232,7 +232,17 @@ def bulk_1000_sum(primary, replica, table):
 def slow_count_all_rows(primary, replica, table, column, before = datetime.now()):
     '''Sum the number of rows in a table. This will be very slow if the table is large.'''
     _announce('slow count all rows', table)
-    query = 'SET statement_timeout = 0; SELECT COUNT({}) AS "count" FROM {} WHERE {} <= %s'.format(column, table, column)
+
+    if column != 'id':
+        _error2('Slow check is only supported on the primary key = "id" for now. Sorry about that :/')
+        return
+    try:
+        int(before)
+    except TypeError:
+        _error2('Slow check only supports integer columns. Please specifiy --count-before=<integer>')
+        return
+
+    query = 'SET statement_timeout = 0; SELECT COUNT({}) AS "count", SUM({}) AS "sum" FROM {} WHERE {} <= %s'.format(column, column, table, column)
 
     ppool = ThreadPool(processes=1)
     rpool = ThreadPool(processes=1)
@@ -240,13 +250,15 @@ def slow_count_all_rows(primary, replica, table, column, before = datetime.now()
     presult = ppool.apply_async(_exec, (primary, query, (before,)))
     rresult = rpool.apply_async(_exec, (replica, query, (before,)))
 
-    pcount = presult.get().fetchone()['count']
-    rcount = rresult.get().fetchone()['count']
+    p = presult.get().fetchone()
+    r = rresult.get().fetchone()
 
-    if rcount != pcount:
-        _error2('Count failed with replica = {} and primary = {}'.format(rcount, pcount))
+    if p['count'] != r['count']:
+        _error2('Count failed with replica = {} and primary = {}'.format(r['count'], p['count']))
+    elif p['sum'] != r['sum']:
+        _error2('Sum failed with replica = {} and primary = {}'.format(r['sum'], p['sum']))
     else:
-        _result2('{} rows'.format(rcount))
+        _result2('{} rows, {} total sum'.format(r['count'], p['count']))
 
 
 def find_missing_seq_records(primary, replica, table, step_size):
@@ -256,7 +268,11 @@ def find_missing_seq_records(primary, replica, table, step_size):
     pmin, pmax = _minmax(primary, table)
     range_ = pmax - pmin
     step_size = round(range_ * step_size)
-    steps = round(range_ / step_size)
+    try:
+        steps = round(range_ / step_size)
+    except ZeroDivisionError:
+        _error2('Not enough rows to run this test.')
+        return
 
     for step in tqdm(range(steps)):
         id_ = pmin + step * step_size
@@ -363,7 +379,7 @@ def main(table, rows, exclude_tables, lag_column, show_skipped, count_before, st
 @click.option('--exit-on-error/--continue-on-error', default=True, help='Exit immediately when possible error condition found.')
 @click.option('--step-size', default=0.0001, help='The size of the search step for find missing sequential records test.')
 @click.option('--row-id', default=None, help='Compare this specific row given id.')
-@click.option('--slow-check/--no-slow-check', default=True, help='Run/Do not run the slow check that counts all rows.')
+@click.option('--slow-check/--no-slow-check', default=True, help='Run/Do not run the slow check that counts and sums all rows.')
 def checksummer(primary, replica, table, debug, rows, exclude_tables, lag_column, show_skipped, count_before, exit_on_error, step_size, row_id, slow_check):
     os.environ['REPLICA_DB_URL'] = replica
     os.environ['PRIMARY_DB_URL'] = primary
